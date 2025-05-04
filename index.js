@@ -1,36 +1,48 @@
-
-const express = require('express');
-const bodyParser = require('body-parser');
-const axios = require('axios');
+const express = require("express");
+const bodyParser = require("body-parser");
+const axios = require("axios");
 
 const app = express();
 app.use(bodyParser.json());
 
-const TELEGRAM_BOT_TOKEN = '8157858553:AAHuDXSVigW42sA2Q1ClYNWxIVgCJdorTlE';
-const CHAT_ID = '1283137908';
+const TELEGRAM_BOT_TOKEN = "YOUR_BOT_TOKEN";
+const TELEGRAM_CHAT_ID = "YOUR_CHAT_ID";
 
-app.post('/', (req, res) => {
-  const order = req.body;
+app.post("/", async (req, res) => {
+  try {
+    const order = req.body;
 
-  // ✅ Debug log to see incoming order payload
-  console.log('📦 Webhook received:', JSON.stringify(order, null, 2));
+    const orderId = order.id;
+    const customerName = order.customer?.first_name + " " + order.customer?.last_name;
+    const phone = order.shipping_address?.phone || "N/A";
+    const address = `${order.shipping_address?.address1 || ""}, ${order.shipping_address?.city || ""}, ${order.shipping_address?.province || ""}, ${order.shipping_address?.zip || ""}`;
+    const total = order.total_price;
+    const status = order.financial_status;
 
-  // ✅ Trigger only if payment is completed
-  if (order.financial_status === 'paid') {
-    const message = `🛒 New Paid Order!\nOrder ID: ${order.id}\nCustomer: ${order.customer.first_name} ${order.customer.last_name}\nTotal: ${order.total_price} ${order.currency}`;
+    const message = `
+🛒 *New Order Received!*
+🆔 *Order ID:* ${orderId}
+👤 *Customer:* ${customerName}
+📞 *Phone:* ${phone}
+🏠 *Address:* ${address}
+💰 *Total:* ₹${total}
+✅ *Status:* ${status}
+    `;
 
-    axios.post(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
-      chat_id: CHAT_ID,
-      text: message
-    })
-    .then(() => console.log('✅ Message sent to Telegram'))
-    .catch(err => console.error('❌ Telegram error:', err));
+    await axios.post(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+      chat_id: TELEGRAM_CHAT_ID,
+      text: message,
+      parse_mode: "Markdown",
+    });
+
+    res.status(200).send("OK");
+  } catch (error) {
+    console.error("Error:", error);
+    res.status(500).send("Error processing webhook");
   }
-
-  res.status(200).send('Webhook received');
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 Server running on port ${PORT}`);
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
 });
